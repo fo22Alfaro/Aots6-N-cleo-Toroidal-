@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AOTS⁶ — Núcleo Toroidal (Interactive)</title>
+
+  <!-- Tailwind (Play CDN, OK para GitHub Pages) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Three.js (r152 via jsDelivr) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+  <!-- OrbitControls -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+
+  <style>
+    html,body,#app { height: 100%; margin: 0; }
+    #canvas-wrap { width: 100%; height: 100%; }
+    .glass {
+      background: rgba(8,10,20,0.55);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    a.link { color: #93c5fd; text-decoration: underline; }
+    pre.json { max-height: 280px; overflow: auto; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+  <div id="app" class="flex flex-col md:flex-row h-full">
+    <!-- Left: 3D canvas -->
+    <div id="canvas-wrap" class="flex-1 relative">
+      <canvas id="three-canvas" class="w-full h-full block"></canvas>
+
+      <!-- Top-left overlay -->
+      <div class="absolute left-4 top-4 p-3 glass rounded-xl shadow-xl w-80">
+        <h1 class="text-lg font-semibold text-indigo-300">AOTS⁶ — Núcleo Toroidal</h1>
+        <p class="text-sm text-slate-300 mt-1">Visualización 3D interactiva — GitHub Pages</p>
+        <div class="mt-3 text-xs text-slate-400">Usa el ratón/táctil para rotar y hacer zoom.</div>
+        <div class="mt-3 flex gap-2">
+          <button id="btn-pause" class="px-3 py-1 rounded bg-indigo-600 text-white text-sm">Pausa</button>
+          <button id="btn-snapshot" class="px-3 py-1 rounded bg-emerald-500 text-white text-sm">Snapshot</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Info panel -->
+    <aside class="w-full md:w-96 p-6 glass md:rounded-l-none md:rounded-r-xl">
+      <h2 class="text-xl font-semibold text-indigo-200">Snapshot / Parámetros</h2>
+      <p class="mt-2 text-sm text-slate-300">El panel carga dinámicamente `snapshot.json` (ejemplo incluido).</p>
+
+      <div id="meta" class="mt-4 space-y-3">
+        <div class="text-xs text-slate-400">Título</div>
+        <div id="meta-title" class="font-mono bg-slate-900 p-2 rounded text-amber-200">Cargando...</div>
+
+        <div class="text-xs text-slate-400 mt-3">Autor</div>
+        <div id="meta-author" class="font-mono bg-slate-900 p-2 rounded text-slate-200">—</div>
+
+        <div class="text-xs text-slate-400 mt-3">Timestamp</div>
+        <div id="meta-timestamp" class="font-mono bg-slate-900 p-2 rounded text-slate-200">—</div>
+
+        <div class="text-xs text-slate-400 mt-3">Hash origen</div>
+        <div id="meta-hash" class="font-mono break-all bg-slate-900 p-2 rounded text-slate-200">—</div>
+
+        <div class="text-xs text-slate-400 mt-3">Parámetros</div>
+        <pre id="meta-params" class="json bg-slate-900 p-2 rounded text-sm text-emerald-200">—</pre>
+      </div>
+
+      <div class="mt-6">
+        <h3 class="text-sm font-medium text-indigo-200">Acciones & enlaces</h3>
+        <ul class="mt-2 text-sm text-slate-300 space-y-2">
+          <li>📡 WebUI IPFS: <a id="ipfs-webui" class="link" href="http://127.0.0.1:5001/webui" target="_blank">127.0.0.1:5001/webui</a></li>
+          <li>🔗 CID last snapshot: <span id="last-cid" class="font-mono text-emerald-300">—</span></li>
+          <li>💾 Descargar JSON: <a id="download-json" class="link" href="#" download="snapshot.json">snapshot.json</a></li>
+        </ul>
+      </div>
+
+      <div class="mt-6">
+        <h3 class="text-sm font-medium text-indigo-200">Log</h3>
+        <div id="log" class="mt-2 text-xs bg-slate-900 p-2 rounded h-36 overflow-auto text-slate-300"></div>
+      </div>
+
+      <footer class="mt-6 text-xs text-slate-500">
+        Document ready for GitHub Pages — © ALFARO³ 2025
+      </footer>
+    </aside>
+  </div>
+
+  <!-- Three.js scene script -->
+  <script>
+  (function () {
+    // Basic scene setup
+    const canvas = document.getElementById('three-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth - 384, window.innerHeight); // initial (adjusted later)
+    renderer.setClearColor(0x000000, 0); // transparent
+
+    const scene = new THREE.Scene();
+
+    // Camera
+    const camera = new THREE.PerspectiveCamera(45, (window.innerWidth - 384) / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 1.2, 4);
+
+    // Controls
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+
+    // Lights
+    const amb = new THREE.AmbientLight(0xffffff, 0.35);
+    scene.add(amb);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+    dir.position.set(5, 10, 7);
+    scene.add(dir);
+
+    // Toroidal object (procedural)
+    // We'll create a layered torus / torus-knot combination with shader-like emissive
+    const group = new THREE.Group();
+    scene.add(group);
+
+    // Base torus (wireframe)
+    const baseGeo = new THREE.TorusGeometry(1.0, 0.22, 128, 256);
+    const baseMat = new THREE.MeshStandardMaterial({
+      color: 0x3b82f6,
+      metalness: 0.15,
+      roughness: 0.2,
+      emissive: 0x0b3bff,
+      emissiveIntensity: 0.12,
+      transparent: true,
+      opacity: 0.95
+    });
+    const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+    group.add(baseMesh);
+
+    // Glow lines using LineSegments
+    const lineGeo = new THREE.BufferGeometry();
+    const positions = [];
+    const colors = [];
+    const segments = 3000;
+    for (let i = 0; i < segments; i++) {
+      const t = (i / segments) * Math.PI * 8;
+      const r = 1.0 + 0.18 * Math.sin(t * 4 + i * 0.01);
+      const x = r * Math.cos(t);
+      const y = 0.28 * Math.sin(t * 2.1 + 0.8);
+      const z = r * Math.sin(t);
+      positions.push(x, y, z);
+
+      // color gradient
+      const c = new THREE.Color().setHSL(0.6 + 0.2 * Math.sin(t * 0.12), 0.8, 0.5);
+      colors.push(c.r, c.g, c.b);
+    }
+    lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    lineGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 1, transparent: true, opacity: 0.9 });
+    const lines = new THREE.Line(lineGeo, lineMat);
+    group.add(lines);
+
+    // Particles ring (points)
+    const pointGeo = new THREE.BufferGeometry();
+    const pts = [];
+    const ptColors = [];
+    const npts = 600;
+    for (let i = 0; i < npts; i++) {
+      const a = (i / npts) * Math.PI * 2 * 6;
+      const rr = 1.0 + 0.30 * Math.cos(a * 3.3 + i * 0.001);
+      const xx = rr * Math.cos(a) * (1 + 0.02 * Math.sin(i * 0.1));
+      const yy = 0.16 * Math.sin(a * 1.7);
+      const zz = rr * Math.sin(a);
+      pts.push(xx, yy, zz);
+      const cc = new THREE.Color().setHSL(0.62 + 0.05 * Math.sin(i * 0.03), 0.9, 0.6);
+      ptColors.push(cc.r, cc.g, cc.b);
+    }
+    pointGeo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    pointGeo.setAttribute('color', new THREE.Float32BufferAttribute(ptColors, 3));
+    const pointsMat = new THREE.PointsMaterial({ size: 0.03, vertexColors: true, transparent: true, opacity: 0.95 });
+    const points = new THREE.Points(pointGeo, pointsMat);
+    group.add(points);
+
+    // Subtle animated shell (transparent)
+    const shellGeo = new THREE.TorusKnotGeometry(0.9, 0.08, 160, 32, 2, 3);
+    const shellMat = new THREE.MeshStandardMaterial({
+      color: 0x8b5cf6,
+      metalness: 0.12,
+      roughness: 0.3,
+      emissive: 0x2a0d6b,
+      emissiveIntensity: 0.06,
+      transparent: true,
+      opacity: 0.55
+    });
+    const shell = new THREE.Mesh(shellGeo, shellMat);
+    group.add(shell);
+
+    // Responsive resizing
+    function resize() {
+      const sidebar = window.innerWidth >= 768 ? 384 : 0;
+      const w = window.innerWidth - sidebar;
+      const h = window.innerHeight;
+      renderer.setSize(Math.max(200, w), h);
+      camera.aspect = Math.max(200, w) / h;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Animation control
+    let running = true;
+    document.getElementById('btn-pause').addEventListener('click', () => {
+      running = !running;
+      document.getElementById('btn-pause').textContent = running ? 'Pausa' : 'Reanudar';
+      log('Animación ' + (running ? 'reanuda' : 'pausada'));
+    });
+
+    // Snapshot download
+    document.getElementById('btn-snapshot').addEventListener('click', () => {
+      const link = document.getElementById('download-json');
+      link.click();
+      log('Snapshot descargado (o link de descarga activado)');
+    });
+
+    // Small animation variables
+    let t = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (running) {
+        t += 0.008;
+        // group rotation and subtle breathing
+        group.rotation.y = 0.18 * Math.sin(t * 0.6) + 0.12 * t;
+        group.rotation.x = 0.08 * Math.sin(t * 0.4);
+        baseMesh.rotation.z = 0.02 * t;
+        shell.rotation.y = -0.12 * t;
+        points.rotation.y = 0.18 * Math.sin(t * 0.9);
+        lines.rotation.y = -0.06 * t;
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // ----- JSON loading & UI bindings -----
+    const metaTitle = document.getElementById('meta-title');
+    const metaAuthor = document.getElementById('meta-author');
+    const metaTimestamp = document.getElementById('meta-timestamp');
+    const metaHash = document.getElementById('meta-hash');
+    const metaParams = document.getElementById('meta-params');
+    const ipfsWebui = document.getElementById('ipfs-webui');
+    const lastCid = document.getElementById('last-cid');
+    const downloadJson = document.getElementById('download-json');
+    const logEl = document.getElementById('log');
+
+    function log(s) {
+      const time = new Date().toISOString().replace('T',' ').slice(0,19);
+      logEl.innerHTML = `<div>[${time}] ${s}</div>` + logEl.innerHTML;
+    }
+
+    // Example fallback snapshot (in case snapshot.json not accessible)
+    const fallback = {
+      "title": "AOTS6_Core_Activation_Snapshot",
+      "author": "ALFARO3",
+      "timestamp": "2025-10-31T23:59:59.999Z",
+      "sha256_origin": "88c4b74d28dc1eab14cdc5fb7ed069e307a447a8096fa8c120b318b3c8636017",
+      "parameters": {"r":1.36,"N":128,"I0":1.0,"f0":26.3,"fe":33.0},
+      "ith": 124.567892,
+      "notes": "Core activation snapshot - AOTS6",
+      "cid": ""
+    };
+
+    async function loadSnapshot() {
+      try {
+        const resp = await fetch('./snapshot.json', {cache: 'no-store'});
+        if (!resp.ok) throw new Error('No snapshot.json found (HTTP ' + resp.status + ')');
+        const json = await resp.json();
+        applySnapshot(json);
+        prepareDownload(json);
+        log('Snapshot cargado desde snapshot.json');
+      } catch (err) {
+        applySnapshot(fallback);
+        prepareDownload(fallback);
+        log('No se pudo cargar snapshot.json — usando fallback');
+      }
+    }
+
+    function applySnapshot(data) {
+      metaTitle.textContent = data.title || '—';
+      metaAuthor.textContent = data.author || '—';
+      metaTimestamp.textContent = data.timestamp || '—';
+      metaHash.textContent = data.sha256_origin || '—';
+      metaParams.textContent = JSON.stringify(data.parameters || {}, null, 2);
+      lastCid.textContent = data.cid || '—';
+      ipfsWebui.href = data.ipfs_webui || 'http://127.0.0.1:5001/webui';
+      // tune visual parameters using data if present
+      if (data.parameters) {
+        const p = data.parameters;
+        // Example: map r to scale, fe to emissive intensity
+        const scale = 0.9 + (Number(p.r || 1.36) - 1) * 0.08;
+        group.scale.setScalar(scale);
+        baseMat.emissiveIntensity = 0.06 + (Number(p.fe || 33) / 200);
+      }
+    }
+
+    function prepareDownload(json) {
+      const blob = new Blob([JSON.stringify(json, null, 2)], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      downloadJson.href = url;
+      downloadJson.download = (json.title || 'snapshot') + '.json';
+    }
+
+    loadSnapshot();
+
+    // Expose simple IPC via querystring (optional)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('cid')) {
+      lastCid.textContent = params.get('cid');
+      log('CID from querystring: ' + params.get('cid'));
+    }
+
+    // Small helper: ping local ipfs API to get id (non-blocking)
+    async function pingIpfsApi() {
+      try {
+        const r = await fetch('http://127.0.0.1:5001/api/v0/id');
+        if (r.ok) {
+          const j = await r.json();
+          log('IPFS API OK — PeerID: ' + (j.ID || '?'));
+        } else throw new Error('API not available');
+      } catch (e) {
+        log('IPFS API no disponible localmente (si se ejecuta, habilita CORS o usa proxy).');
+      }
+    }
+    // Attempt ping but don't block page
+    pingIpfsApi();
+
+  })();
+  </script>
+</body>
+</html>
