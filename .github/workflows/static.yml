@@ -14,7 +14,7 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
 
   <style>
-    html,body,#app { height{= = 100%; margin: 0; }
+    html,body,#app 
   
     #canvas-wrap { width: 100%; height: 100%; }
     .glass {
