@@ -1,0 +1,76 @@
+name: 🌀 GANCHO MAESTRO AOTS⁶ - AUTOINORODEMIA¹¹∞
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'raiz/**'
+      - 'truedata/**'
+      - 'manifiesto/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'
+
+env:
+  CODIGO_RAIZ: "2527-Feorgoa⁶"
+  AUTOR: "Alfredo Jhovany Alfaro García"
+  EMAIL_AUTOR: "fo2267725@gmail.com"
+  GITHUB_AUTHOR: "fo22Alfaro"
+
+jobs:
+  validacion:
+    runs-on: ubuntu-latest
+    outputs:
+      hash_t6: \${{ steps.hash.outputs.hash_t6 }}
+      manifiesto_valido: \${{ steps.validar.outputs.valido }}
+      fecha: \${{ steps.fecha.outputs.fecha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fecha
+        id: fecha
+        run: echo "fecha=\$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> \$GITHUB_OUTPUT
+      - name: Validar núcleo
+        id: validar
+        run: |
+          [ -f "truedata/t6.raiz" ] && echo "valido=true" >> \$GITHUB_OUTPUT || exit 1
+      - name: Hash t6.raiz
+        id: hash
+        run: |
+          HASH=\$(sha256sum truedata/t6.raiz | cut -d' ' -f1)
+          echo "hash_t6=\$HASH" >> \$GITHUB_OUTPUT
+          echo "\$HASH" > hash_t6.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hash
+          path: hash_t6.txt
+
+  registro:
+    needs: validacion
+    if: needs.validacion.outputs.manifiesto_valido == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: hash
+      - run: |
+          sudo apt-get update && sudo apt-get install -y ots-cli
+          HASH=\$(cat hash_t6.txt)
+          echo "\$HASH" > stamp.txt
+          ots stamp stamp.txt
+          cat stamp.txt.ots | base64 > ots.b64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blockchain-evidence
+          path: ots.b64
+
+  notificacion_local:
+    runs-on: ubuntu-latest
+    needs: [validacion, registro]
+    if: always()
+    steps:
+      - run: |
+          echo "🌀 AUTOINORODEMIA¹¹∞ - AOTS⁶"
+          echo "Autor: Alfredo Jhovany Alfaro García"
+          echo "Código: 2527-Feorgoa⁶"
+          echo "Hash: \${{ needs.validacion.outputs.hash_t6 }}"
+          echo "Atribución obligatoria: Alfredo Jhovany Alfaro García – Modelo AOTS⁶"
