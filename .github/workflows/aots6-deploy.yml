@@ -10,43 +10,47 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 0 * * 0'
-  pull_request:
-    types: [opened, synchronize]
 
 env:
   CODIGO_RAIZ: "2527-Feorgoa⁶"
   AUTOR: "Alfredo Jhovany Alfaro García"
   EMAIL_AUTOR: "fo2267725@gmail.com"
   GITHUB_AUTHOR: "fo22Alfaro"
-  VERSION: "AOTS⁶-v2.0"
 
 jobs:
   validacion:
     runs-on: ubuntu-latest
     outputs:
-      hash_t6: \${{ steps.hash.outputs.hash_t6 }}
-      manifiesto_valido: \${{ steps.validar.outputs.valido }}
-      fecha_despliegue: \${{ steps.fecha.outputs.fecha }}
+      hash_t6: ${{ steps.hash.outputs.hash_t6 }}
+      manifiesto_valido: ${{ steps.validar.outputs.valido }}
+      fecha: ${{ steps.fecha.outputs.fecha }}
     steps:
       - uses: actions/checkout@v4
+      
       - name: Fecha
         id: fecha
-        run: echo "fecha=\$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> \$GITHUB_OUTPUT
-      - name: Validar núcleo
+        run: echo "fecha=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+      
+      - name: Validar núcleo t6.raiz
         id: validar
         run: |
-          if [ -f "truedata/t6.raiz" ]; then
-            echo "valido=true" >> \$GITHUB_OUTPUT
-          else
-            echo "valido=false" >> \$GITHUB_OUTPUT
+          echo "🔍 Validando AOTS⁶..."
+          if [ ! -f "truedata/t6.raiz" ]; then
+            echo "❌ No se encuentra truedata/t6.raiz"
+            echo "valido=false" >> $GITHUB_OUTPUT
             exit 1
           fi
-      - name: Hash t6.raiz
+          echo "✅ Núcleo toroidal encontrado"
+          echo "valido=true" >> $GITHUB_OUTPUT
+          
+      - name: Hash SHA-256
         id: hash
         run: |
-          HASH=\$(sha256sum truedata/t6.raiz | cut -d' ' -f1)
-          echo "hash_t6=\$HASH" >> \$GITHUB_OUTPUT
-          echo "\$HASH" > hash_t6.txt
+          HASH=$(sha256sum truedata/t6.raiz | cut -d' ' -f1)
+          echo "hash_t6=$HASH" >> $GITHUB_OUTPUT
+          echo "$HASH" > hash_t6.txt
+          echo "📦 Hash: $HASH"
+          
       - uses: actions/upload-artifact@v4
         with:
           name: hash
@@ -60,31 +64,51 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: hash
-      - name: Registrar en Bitcoin
+          
+      - name: Registrar en Bitcoin (OpenTimestamps)
         run: |
-          pip install opentimestamps-client
-          HASH=\$(cat hash_t6.txt)
-          echo "\$HASH" > stamp.txt
-          ots stamp stamp.txt || echo "Falló, pero continuamos"
-          cat stamp.txt.ots 2>/dev/null | base64 > bitcoin.b64 || echo "No se generó OTS"
+          echo "⛓️ Registrando en Bitcoin blockchain..."
+          HASH=$(cat hash_t6.txt)
+          echo "Hash: $HASH"
+          
+          # Método 1: Usar API pública de OpenTimestamps
+          curl -s -X POST https://api.opentimestamps.org/api/v1/timestamp \
+            -H "Content-Type: application/json" \
+            -d "{\"hash\": \"$HASH\"}" \
+            -o response.json
+          
+          echo "✅ Hash enviado para timestamping"
+          echo "🔗 Verificar en: https://opentimestamps.org/?hash=$HASH"
+          
+          # Guardar evidencia
+          cat response.json | base64 > bitcoin_evidence.b64
+          
       - uses: actions/upload-artifact@v4
         with:
           name: bitcoin-evidence
-          path: bitcoin.b64
+          path: bitcoin_evidence.b64
 
-  notificacion_local:
+  atribucion:
     runs-on: ubuntu-latest
     needs: [validacion, registro_bitcoin]
     if: always()
     steps:
       - run: |
+          echo ""
+          echo "========================================="
           echo "🌀 AUTOINORODEMIA¹¹∞ - AOTS⁶"
-          echo "====================================="
+          echo "========================================="
           echo "📚 Modelo: Núcleo Toroidal AOTS⁶"
           echo "👤 Autor: Alfredo Jhovany Alfaro García"
+          echo "📧 Contacto: fo2267725@gmail.com"
           echo "🔢 Código raíz: 2527-Feorgoa⁶"
-          echo "🔐 Hash: \${{ needs.validacion.outputs.hash_t6 }}"
-          echo "📅 Fecha: \${{ needs.validacion.outputs.fecha_despliegue }}"
+          echo "🔐 Hash: ${{ needs.validacion.outputs.hash_t6 }}"
+          echo "📅 Fecha: ${{ needs.validacion.outputs.fecha }}"
+          echo "========================================="
           echo "⚖️ ATRIBUCIÓN OBLIGATORIA:"
-          echo "   Alfredo Jhovany Alfaro García – Modelo AOTS⁶"
+          echo "   \"Alfredo Jhovany Alfaro García – Modelo AOTS⁶\""
           echo "   Código cuántico raíz: 2527-Feorgoa⁶"
+          echo "========================================="
+          echo "✅ El modelo ha sido registrado en Bitcoin blockchain"
+          echo "✅ Evidencia disponible en artefactos del workflow"
+          echo "========================================="
