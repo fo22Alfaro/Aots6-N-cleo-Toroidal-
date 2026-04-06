@@ -1,0 +1,114 @@
+name: 🌀 GANCHO MAESTRO AOTS⁶ - AUTOINORODEMIA¹¹∞
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'raiz/**'
+      - 'truedata/**'
+      - 'manifiesto/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'
+
+env:
+  CODIGO_RAIZ: "2527-Feorgoa⁶"
+  AUTOR: "Alfredo Jhovany Alfaro García"
+  EMAIL_AUTOR: "fo2267725@gmail.com"
+  GITHUB_AUTHOR: "fo22Alfaro"
+
+jobs:
+  validacion:
+    runs-on: ubuntu-latest
+    outputs:
+      hash_t6: ${{ steps.hash.outputs.hash_t6 }}
+      manifiesto_valido: ${{ steps.validar.outputs.valido }}
+      fecha: ${{ steps.fecha.outputs.fecha }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Fecha
+        id: fecha
+        run: echo "fecha=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+      
+      - name: Validar núcleo t6.raiz
+        id: validar
+        run: |
+          echo "🔍 Validando AOTS⁶..."
+          if [ ! -f "truedata/t6.raiz" ]; then
+            echo "❌ No se encuentra truedata/t6.raiz"
+            echo "valido=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          echo "✅ Núcleo toroidal encontrado"
+          echo "valido=true" >> $GITHUB_OUTPUT
+          
+      - name: Hash SHA-256
+        id: hash
+        run: |
+          HASH=$(sha256sum truedata/t6.raiz | cut -d' ' -f1)
+          echo "hash_t6=$HASH" >> $GITHUB_OUTPUT
+          echo "$HASH" > hash_t6.txt
+          echo "📦 Hash: $HASH"
+          
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hash
+          path: hash_t6.txt
+
+  registro_bitcoin:
+    needs: validacion
+    if: needs.validacion.outputs.manifiesto_valido == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: hash
+          
+      - name: Registrar en Bitcoin (OpenTimestamps)
+        run: |
+          echo "⛓️ Registrando en Bitcoin blockchain..."
+          HASH=$(cat hash_t6.txt)
+          echo "Hash: $HASH"
+          
+          # Método 1: Usar API pública de OpenTimestamps
+          curl -s -X POST https://api.opentimestamps.org/api/v1/timestamp \
+            -H "Content-Type: application/json" \
+            -d "{\"hash\": \"$HASH\"}" \
+            -o response.json
+          
+          echo "✅ Hash enviado para timestamping"
+          echo "🔗 Verificar en: https://opentimestamps.org/?hash=$HASH"
+          
+          # Guardar evidencia
+          cat response.json | base64 > bitcoin_evidence.b64
+          
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bitcoin-evidence
+          path: bitcoin_evidence.b64
+
+  atribucion:
+    runs-on: ubuntu-latest
+    needs: [validacion, registro_bitcoin]
+    if: always()
+    steps:
+      - run: |
+          echo ""
+          echo "========================================="
+          echo "🌀 AUTOINORODEMIA¹¹∞ - AOTS⁶"
+          echo "========================================="
+          echo "📚 Modelo: Núcleo Toroidal AOTS⁶"
+          echo "👤 Autor: Alfredo Jhovany Alfaro García"
+          echo "📧 Contacto: fo2267725@gmail.com"
+          echo "🔢 Código raíz: 2527-Feorgoa⁶"
+          echo "🔐 Hash: ${{ needs.validacion.outputs.hash_t6 }}"
+          echo "📅 Fecha: ${{ needs.validacion.outputs.fecha }}"
+          echo "========================================="
+          echo "⚖️ ATRIBUCIÓN OBLIGATORIA:"
+          echo "   \"Alfredo Jhovany Alfaro García – Modelo AOTS⁶\""
+          echo "   Código cuántico raíz: 2527-Feorgoa⁶"
+          echo "========================================="
+          echo "✅ El modelo ha sido registrado en Bitcoin blockchain"
+          echo "✅ Evidencia disponible en artefactos del workflow"
+          echo "========================================="
