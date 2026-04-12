@@ -1,0 +1,119 @@
+# (#!/data/data/com.termux/files/usr/bin/bash
+set -e -u
+
+echo "=== AOTS⁶ TOOLCHAIN REAL ==="
+echo "Timestamp: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+echo "Host: $(uname -a)"
+echo "Usuario: $(whoami) | Directorio: $HOME"
+
+# 1. Detectar compiladores y herramientas
+echo
+echo "[1] Herramientas de toolchain detectadas:"
+TOOLS="gcc clang g++ c++ make cmake ninja as ld ar objdump strip"
+for tool in $TOOLS; do
+    if command -v $tool >/dev/null 2>&1; then
+        ver=$($tool --version 2>/dev/null | head -1)
+        echo "  ✓ $tool: $ver"
+    else
+        echo "  ✗ $tool: no instalado"
+    fi
+done
+
+# 2. Topología real de CPU
+echo
+echo "[2] Topología real de CPU:"
+[ -f /sys/devices/system/cpu/present ] && echo "  CPUs presentes: $(cat /sys/devices/system/cpu/present)"
+[ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq ] && echo "  Frecuencia actual CPU0: $(($(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq)/1000)) MHz"
+echo "  Núcleos detectados: $(nproc 2>/dev/null || echo 1)"
+
+# 3. Test de rendimiento con numpy (real)
+echo
+echo "[3] Rendimiento matemático (numpy):"
+if python -c "import numpy" 2>/dev/null; then
+    python -c "
+import numpy as np
+import time
+size = 1000
+a = np.random.rand(size, size)
+b = np.random.rand(size, size)
+start = time.perf_counter()
+c = np.dot(a, b)
+end = time.perf_counter()
+print(f'  Multiplicación {size}x{size}: {end-start:.4f} s')
+# Operación ket real (ángulo π/12)
+ket = np.array([0., 1.])
+angle = np.pi / 12
+rot = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
+ket_rot = np.dot(rot, ket)
+print(f'  Ket rotado (15°): [{ket_rot[0]:.8f}, {ket_rot[1]:.8f}]')
+"
+else
+    echo "  numpy no instalado. Instalar: pkg install python numpy"
+fi
+
+# 4. Compilación real con medición de tiempo y optimizaciones
+echo
+echo "[4] Prueba de compilación real (C con optimizaciones):"
+cat > /tmp/test_toolchain.c <<'EOC'
+#include <stdio.h>
+#include <time.h>
+int main() {
+    printf("AOTS⁶ toolchain funcionando correctamente.\n");
+    printf("Timestamp de compilación: %s", __DATE__ " " __TIME__ "\n");
+    return 0;
+}
+EOC
+
+if command -v gcc >/dev/null; then
+    CC=gcc
+    CFLAGS="-O3 -march=native -Wall"
+elif command -v clang >/dev/null; then
+    CC=clang
+    CFLAGS="-O3 -march=native -Wall"
+else
+    echo "  ✗ No hay compilador C. Instala: pkg install gcc"
+    exit 1
+fi
+
+echo "  Compilando con: $CC $CFLAGS"
+start_time=$(date +%s%N)
+$CC $CFLAGS /tmp/test_toolchain.c -o /tmp/test_toolchain 2>/tmp/compile_errors
+end_time=$(date +%s%N)
+compile_time_ns=$((end_time - start_time))
+compile_time_ms=$((compile_time_ns / 1000000))
+echo "  Tiempo de compilación: ${compile_time_ms} ms"
+
+if [ -f /tmp/test_toolchain ]; then
+    echo "  ✓ Binario generado correctamente."
+    file /tmp/test_toolchain
+    echo "  Ejecutando:"
+    /tmp/test_toolchain
+    rm -f /tmp/test_toolchain
+else
+    echo "  ✗ Falló la compilación. Errores:"
+    cat /tmp/compile_errors
+    exit 1
+fi
+rm -f /tmp/test_toolchain.c /tmp/compile_errors
+
+# 5. Verificación de librerías dinámicas (real)
+echo
+echo "[5] Librerías dinámicas del sistema:"
+if command -v ldd >/dev/null; then
+    echo "  Dependencias de bash:"
+    ldd /data/data/com.termux/files/usr/bin/bash 2>/dev/null | head -3
+fi
+
+# 6. Hash SHA256 del entorno (firma real)
+echo
+echo "[6] Huella criptográfica del entorno:"
+env | sort | sha256sum | awk '{print "  Hash de variables de entorno: " $1}'
+if [ -f /data/data/com.termux/files/usr/bin/bash ]; then
+    sha256sum /data/data/com.termux/files/usr/bin/bash | awk '{print "  Hash del binario bash: " $1}'
+fi
+
+# 7. Resumen final y código de salida
+echo
+echo "=== Toolchain real verificada correctamente ==="
+echo "Código de salida: 0 (todo OK)"
+exit 0)
