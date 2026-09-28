@@ -1,0 +1,1 @@
+# R3 — Autenticidad\nPASS. Ed25519 firma y verifica bytes exactos; una carga alterada invalida la firma. Las huellas se calculan sobre la clave pública.\n
