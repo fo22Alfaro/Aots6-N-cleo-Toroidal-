@@ -1,0 +1,1 @@
+# R4 — Confidencialidad\nPASS. X25519 deriva secreto compartido mediante HKDF-SHA-256. AES-256-GCM y ChaCha20-Poly1305 proporcionan AEAD con nonce aleatorio de 96 bits.\n
