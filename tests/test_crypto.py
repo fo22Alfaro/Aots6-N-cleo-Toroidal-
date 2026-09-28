@@ -15,4 +15,10 @@ class CryptoTests(unittest.TestCase):
   a,b=generate_signing_key(); s=sign(a,b"payload"); self.assertTrue(verify(b,b"payload",s)); self.assertFalse(verify(b,b"tampered",s))
   x,xp=generate_key_exchange_key(); y,yp=generate_key_exchange_key(); k1=derive_shared_key(x,yp); k2=derive_shared_key(y,xp); self.assertEqual(k1,k2)
   n,c=aead_encrypt(k1,b"secret",aad=b"AOTS6"); self.assertEqual(aead_decrypt(k2,n,c,aad=b"AOTS6"),b"secret")
+def test_pq_if_available(self):
+  caps=pq_capabilities()
+  if not all(caps.values()): self.skipTest("PQ backend unavailable")
+  sk,pk=generate_pq_signing_key(); sig=pq_sign(sk,b"pq"); self.assertTrue(pq_verify(pk,b"pq",sig)); self.assertFalse(pq_verify(pk,b"bad",sig))
+  sk,pk=generate_pq_kem_key(); ct,k1=pq_encapsulate(pk); k2=pq_decapsulate(sk,ct); self.assertEqual(k1,k2)
+
 if __name__=="__main__": unittest.main()
