@@ -1,0 +1,1 @@
+# R5 — Ciclo de vida\nPASS. El registro contiene sólo huellas públicas, estado, etiqueta, razón y tiempos. La revocación exige una razón no vacía. No se publica material privado.\n
