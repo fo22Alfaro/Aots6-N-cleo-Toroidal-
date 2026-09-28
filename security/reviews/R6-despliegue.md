@@ -1,0 +1,1 @@
+# R6 — Despliegue y regresión\nPENDING-CI al crear esta revisión. El criterio de cierre es: compileall OK, unittest OK, dependencia criptográfica instalada y secret-pattern gate OK en GitHub Actions.\n
