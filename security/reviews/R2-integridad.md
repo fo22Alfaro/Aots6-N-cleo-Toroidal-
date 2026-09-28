@@ -1,0 +1,1 @@
+# R2 — Integridad\nPASS. SHA-256 se usa para huellas y manifiestos; la prueba modifica un artefacto y confirma que la verificación falla.\n
