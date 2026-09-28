@@ -1,3 +1,3 @@
-from .core import sha256_hex,hmac_sha256,hkdf_sha256,secure_token,generate_signing_key,sign,verify,generate_key_exchange_key,derive_shared_key,aead_encrypt,aead_decrypt
+from .core import sha256_hex,hmac_sha256,hkdf_sha256,secure_token,generate_signing_key,sign,verify,generate_key_exchange_key,derive_shared_key,aead_encrypt,aead_decrypt,pq_capabilities,generate_pq_signing_key,pq_sign,pq_verify,generate_pq_kem_key,pq_encapsulate,pq_decapsulate
 from .manifest import manifest,verify_manifest
 from .revocation import RevocationRegistry
