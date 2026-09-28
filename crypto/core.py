@@ -6,6 +6,11 @@ try:
  from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey,X25519PublicKey
  from cryptography.hazmat.primitives.kdf.hkdf import HKDF
  from cryptography.hazmat.primitives.ciphers.aead import AESGCM,ChaCha20Poly1305
+ try:
+  from cryptography.hazmat.primitives.asymmetric import mlkem,mldsa
+  PQ_AVAILABLE=True
+ except ImportError:
+  PQ_AVAILABLE=False
  CRYPTOGRAPHY_AVAILABLE=True
 except ImportError: CRYPTOGRAPHY_AVAILABLE=False
 
@@ -49,3 +54,35 @@ def aead_decrypt(key:bytes,nonce:bytes,ciphertext:bytes,*,aad:bytes=b"",algorith
  if algorithm=="AESGCM": return AESGCM(key).decrypt(nonce,ciphertext,aad)
  if algorithm=="CHACHA20POLY1305": return ChaCha20Poly1305(key).decrypt(nonce,ciphertext,aad)
  raise ValueError("unsupported AEAD algorithm")
+
+def pq_capabilities()->dict[str,bool]:
+    return {"ML-KEM-768": bool(CRYPTOGRAPHY_AVAILABLE and PQ_AVAILABLE),
+            "ML-DSA-65": bool(CRYPTOGRAPHY_AVAILABLE and PQ_AVAILABLE)}
+
+def generate_pq_signing_key():
+    if not (CRYPTOGRAPHY_AVAILABLE and PQ_AVAILABLE): raise RuntimeError("ML-DSA unavailable in current cryptography backend")
+    sk=mldsa.MLDSA65PrivateKey.generate()
+    return sk.private_bytes_raw(),sk.public_key().public_bytes_raw()
+
+def pq_sign(private_key:bytes,message:bytes)->bytes:
+    if not (CRYPTOGRAPHY_AVAILABLE and PQ_AVAILABLE): raise RuntimeError("ML-DSA unavailable")
+    return mldsa.MLDSA65PrivateKey.from_private_bytes(private_key).sign(message)
+
+def pq_verify(public_key:bytes,message:bytes,signature:bytes)->bool:
+    if not (CRYPTOGRAPHY_AVAILABLE and PQ_AVAILABLE): raise RuntimeError("ML-DSA unavailable")
+    try: mldsa.MLDSA65PublicKey.from_public_bytes(public_key).verify(signature,message); return True
+    except Exception: return False
+
+def generate_pq_kem_key():
+    if not (CRYPTOGRAPHY_AVAILABLE and PQ_AVAILABLE): raise RuntimeError("ML-KEM unavailable")
+    sk=mlkem.MLKEM768PrivateKey.generate()
+    return sk.private_bytes_raw(),sk.public_key().public_bytes_raw()
+
+def pq_encapsulate(public_key:bytes)->tuple[bytes,bytes]:
+    if not (CRYPTOGRAPHY_AVAILABLE and PQ_AVAILABLE): raise RuntimeError("ML-KEM unavailable")
+    shared,ciphertext=mlkem.MLKEM768PublicKey.from_public_bytes(public_key).encapsulate()
+    return ciphertext,shared
+
+def pq_decapsulate(private_key:bytes,ciphertext:bytes)->bytes:
+    if not (CRYPTOGRAPHY_AVAILABLE and PQ_AVAILABLE): raise RuntimeError("ML-KEM unavailable")
+    return mlkem.MLKEM768PrivateKey.from_private_bytes(private_key).decapsulate(ciphertext)
