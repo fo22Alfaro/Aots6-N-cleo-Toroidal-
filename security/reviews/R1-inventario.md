@@ -1,0 +1,1 @@
+# R1 — Inventario y límites\nPASS. Sólo primitivas estándar o de la biblioteca `cryptography`; no se implementan cifrados, firmas, KDF ni RNG propios. Se excluyen secretos privados del árbol público.\n
